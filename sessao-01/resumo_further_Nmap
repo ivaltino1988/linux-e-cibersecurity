@@ -1,0 +1,116 @@
+# Resumo — Sala TryHackMe "Further Nmap"
+
+*Progresso por task, com evidência de conclusão (100% da sala)*
+
+## Task 1 — Deploy
+
+![Task 1](assets/task_1.png)
+
+A máquina virtual alvo foi implementada (deploy) com sucesso na sala TryHackMe. O IP atribuído ao alvo foi `10.130.182.223`.
+
+## Task 2 — Introduction
+
+![Task 2](assets/task_2.png)
+
+Introdução teórica ao port scanning: portas são o mecanismo usado para direcionar tráfego para a aplicação correta num servidor. Cada máquina tem 65535 portas disponíveis, das quais 1024 são consideradas "well-known". O Nmap foi apresentado como a ferramenta padrão da indústria para scanning e enumeração.
+
+## Task 3 — Nmap Switches
+
+![Task 3](assets/task_3.png)
+
+Revisão dos switches principais do Nmap: `-sS` (SYN scan), `-sU` (UDP scan), `-O` (deteção de SO), `-sV` (deteção de versão), `-v`/`-vv` (verbosidade), `-oA`/`-oN`/`-oG` (guardar output), `-A` (modo agressivo), `-T5` (velocidade), `-p` (seleção de portas), `--script` (scripts NSE).
+
+## Task 4 — Scan Types: Overview
+
+![Task 4](assets/task_4.png)
+
+Visão geral dos tipos de scan disponíveis no Nmap: TCP Connect, SYN, UDP, NULL, FIN, Xmas, e scanning ICMP (ping).
+
+## Task 5 — TCP Connect Scans
+
+![Task 5](assets/task_5.png)
+
+O TCP Connect scan (`-sT`) completa o handshake de 3 vias (SYN → SYN/ACK → ACK) com cada porta do alvo. Se a porta estiver fechada, o alvo responde com RST (conforme definido na RFC 9293).
+
+## Task 6 — SYN Scans
+
+![Task 6](assets/task_6.png)
+
+O SYN scan (`-sS`), também chamado "Half-open" ou "Stealth" scan, envia SYN e responde com RST assim que recebe SYN/ACK, sem completar o handshake. É mais rápido e discreto, mas requer permissões sudo.
+
+## Task 7 — UDP Scans
+
+![Task 7](assets/task_7.png)
+
+O UDP é stateless (sem handshake). Uma porta aberta normalmente não responde, sendo marcada como `open|filtered`. Uma porta fechada responde com um pacote ICMP "port unreachable". Por ser lento, recomenda-se o uso de `--top-ports <n>`.
+
+## Task 8 — NULL, FIN and Xmas
+
+![Task 8](assets/task_8.png)
+
+Estes três tipos de scan enviam pacotes malformados (sem flags / FIN / PSH+URG+FIN) para tentar evadir firewalls. Esperam RST para portas fechadas; sem resposta indica `open|filtered`. O Windows é conhecido por responder sempre com RST, invalidando este tipo de scan.
+
+## Task 9 — ICMP Network Scanning
+
+![Task 9](assets/task_9.png)
+
+O ping sweep (`-sn`) permite identificar hosts ativos numa rede sem fazer scan de portas, usando pacotes ICMP echo (ou ARP em rede local). Exemplo: `nmap -sn 172.16.0.0/16`.
+
+## Task 10 — NSE Scripts: Overview
+
+![Task 10](assets/task_10.png)
+
+Introdução ao Nmap Scripting Engine (NSE), escrito em Lua. Principais categorias: `safe`, `intrusive` (evitar em produção), `vuln`, `exploit`, `auth`, `brute`, `discovery`.
+
+## Task 11 — Working with the NSE
+
+![Task 11](assets/task_11.png)
+
+Uso do switch `--script` para ativar scripts NSE (ex: `--script=vuln`), execução de múltiplos scripts em simultâneo separados por vírgula, e passagem de argumentos com `--script-args`.
+
+## Task 12 — Searching for Scripts
+
+![Task 12](assets/task_12.png)
+
+Os scripts NSE estão armazenados em `/usr/share/nmap/scripts`. Podem ser pesquisados via `grep` no ficheiro `script.db` ou com `ls`. O script `smb-os-discovery.nse` (deteção de SO via SMB) depende de `smb-brute`.
+
+## Task 13 — Firewall Evasion
+
+![Task 13](assets/task_13.png)
+
+Firewalls Windows bloqueiam ICMP por defeito, sendo necessário usar `-Pn` para ignorar o ping antes do scan. Outras técnicas de evasão: `-f` (fragmentação), `--mtu`, `--scan-delay`, `--badsum`, `--data-length`.
+
+## Task 14 — Practical
+
+![Task 14](assets/task_14.png)
+
+Aplicação prática contra o alvo (`10.130.182.223`): o host não respondeu a ICMP (N); um Xmas scan às primeiras 999 portas devolveu todas como `open|filtered` (motivo: `no-response`); um SYN scan às primeiras 5000 portas identificou 5 portas abertas (21, 53, 80, 135, 3389); o script `ftp-anon` confirmou login anónimo bem-sucedido no FTP (Y).
+
+## Task 15 — Conclusion
+
+![Task 15](assets/task_15.png)
+
+Sala concluída a 100%. Consolidação de todos os conceitos: tipos de scan TCP/UDP, deteção de SO e versões, scripts NSE, evasão de firewall, e aplicação prática contra uma máquina real.
+
+---
+
+## Resultados práticos — scan ao alvo (10.130.182.223)
+
+| Teste | Comando | Resultado |
+|---|---|---|
+| Resposta a ICMP (ping) | `ping 10.130.182.223` | **N** — sem resposta |
+| Xmas scan (portas 1-999) | `nmap -sX -p1-999 -vv <IP>` | **999** portas `open\|filtered` (motivo: `no-response`) |
+| SYN scan (portas 1-5000) | `sudo nmap -sS -p1-5000 <IP>` | **5** portas abertas (21, 53, 80, 135, 3389) |
+| Script ftp-anon | `nmap -p21 --script ftp-anon <IP>` | **Y** — login anónimo bem-sucedido |
+
+### Portas identificadas no scan completo (`nmap -sV -sC`)
+
+| Porta | Serviço | Versão |
+|---|---|---|
+| 21/tcp | ftp | FileZilla ftpd (login anónimo permitido) |
+| 53/tcp | domain | Simple DNS Plus |
+| 80/tcp | http | Microsoft IIS httpd 10.0 |
+| 135/tcp | msrpc | Microsoft Windows RPC |
+| 3389/tcp | ms-wbt-server | Microsoft Terminal Services |
+
+**Sistema operativo do alvo:** Windows (host `WIN-SCAN`)
